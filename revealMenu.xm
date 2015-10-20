@@ -7,9 +7,31 @@
 //
 
 #import "revealMenuHelper.h"
+#import <AudioToolbox/AudioServices.h>
 #import <UIKit/UIGestureRecognizerSubclass.h>
 
+extern "C" void AudioServicesPlaySystemSoundWithVibration(SystemSoundID inSystemSoundID, id unknown, NSDictionary *options);
+
 %group main
+%hook SBIconController
+
+- (void) _handleShortcutMenuPeek:(UILongPressGestureRecognizer *)gesture
+{
+	if (gesture.state == UIGestureRecognizerStateBegan) {
+		NSMutableDictionary* dict = [NSMutableDictionary dictionary];
+    	NSMutableArray* arr = [NSMutableArray array ];
+    	[arr addObject:[NSNumber numberWithBool:YES]];
+    	[arr addObject:[NSNumber numberWithInt:25]]; //vibrate for 50ms
+    	[dict setObject:arr forKey:@"VibePattern"];
+    	[dict setObject:[NSNumber numberWithFloat:0.25] forKey:@"Intensity"];
+    	AudioServicesPlaySystemSoundWithVibration(4095,nil,dict);
+	}
+	
+	%orig(gesture);
+}
+
+%end
+
 %hook SBIconView
 
 - (id)initWithContentType:(unsigned long long)arg1 {
@@ -17,6 +39,7 @@
 	SBIconController *sbIconC = [objc_getClass("SBIconController") sharedInstance];
 	UILongPressGestureRecognizer *shortcutMenuPeekGesture = MSHookIvar<UILongPressGestureRecognizer *>(self, "_shortcutMenuPeekGesture");
 	shortcutMenuPeekGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:sbIconC action:@selector(_handleShortcutMenuPeek:)];
+	shortcutMenuPeekGesture.minimumPressDuration = 0.1;
  	[self addGestureRecognizer:shortcutMenuPeekGesture];
  	// add swipe-up alternative for those weren't able to get the longpress to edit to work
  	UISwipeGestureRecognizer *swipeGest = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(revealMenuSwiped:)];
